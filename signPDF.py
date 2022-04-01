@@ -189,6 +189,7 @@ def get_credits(courseid):
 
 
 def sign_file(choice):
+    global courses_list
     ## file chooser for exising file to sign
     filetypes = (('PDF Files', '*.pdf'),('All Files', '*.*'))
     infilepath = fd.askopenfilename(filetypes=filetypes)
@@ -201,36 +202,79 @@ def sign_file(choice):
     if choice == 'name' or choice == 'both':
         can.drawString(180, 364, initial_entry.get())
     
-    """ Draw excel data on page 2 """
-    if choice == 'excel' or choice == 'both':
+    """ Draw course data on page 2 """
+    if choice == 'course' or choice == 'both':
         #### Perform drawing on page 2
         pdfmetrics.registerFont(TTFont('Arial', 'C:\\WINDOWS\\FONTS\\ARIAL.TTF'))
-        wrapper = textwrap.TextWrapper(width=32)
-        coursename_list = wrapper.wrap(text=coursename_entry.get())
-        start_y = 292
-        if len(coursename_list) > 2:
-            start_y=292
-            start_x=60
-            can.setFont('Arial', 6)
-        elif len(coursename_list) == 2:
-            start_x=70
-            start_y=287
-            can.setFont('Arial', 8)
+        wrapper = textwrap.TextWrapper(width=28)
+        
+        ### Determine if we have one or more courses to draw ###
+        if len(courses_list)>0:
+            ### Courses to draw from listbox
+            # calculate total tuition
+            total_tuition = 0
+            for course in courses_list:
+                tuition = course[1].replace('$','') # strip out dollar signs
+                total_tuition += float(tuition)
+            num = 0
+            ### distance between course lines
+            spacer = 29.5
+            for course in courses_list:
+                coursename_list = wrapper.wrap(text=course[4])
+                start_y = 292-num*spacer
+                if len(coursename_list) > 2:
+                    start_y=292-num*spacer
+                    start_x=70
+                    can.setFont('Arial', 6)
+                elif len(coursename_list) == 2:
+                    start_x=70
+                    start_y=287-num*spacer
+                    can.setFont('Arial', 8)
+                else:
+                    start_x=70
+                    can.setFont('Arial', 10)
+                    start_y=280-num*spacer
+                for i in range(len(coursename_list)):
+                    can.drawString(start_x, start_y-(i*10), coursename_list[i])
+                ### courseID, tuition, start, end, course name, credits ###
+                can.setFont('Arial', 12)
+                can.drawString(215, 280-num*spacer, course[0])
+                can.drawString(310, 280-num*spacer, course[5])
+                can.setFont('Arial', 10)
+                can.drawString(365, 280-num*spacer, course[2])
+                can.drawString(425, 280-num*spacer, course[3])
+                can.setFont('Arial', 12)
+                can.drawString(490, 280-num*spacer, "${:,.2f}".format(float(course[1].replace('$',''))))
+                num = num + 1
+            can.drawString(445, 48, "${:,.2f}".format(total_tuition))
         else:
-            start_x=58
+            ### Listbox is empty, draw from entry boxes
+            coursename_list = wrapper.wrap(text=coursename_entry.get())
+            start_y = 292
+            if len(coursename_list) > 2:
+                start_y=292
+                start_x=70
+                can.setFont('Arial', 6)
+            elif len(coursename_list) == 2:
+                start_x=70
+                start_y=287
+                can.setFont('Arial', 8)
+            else:
+                start_x=70
+                can.setFont('Arial', 10)
+                start_y = 280
+            for i in range(len(coursename_list)):
+                can.drawString(start_x, start_y-(i*10), coursename_list[i])
+            can.setFont('Arial', 12)
+            can.drawString(215, 280, courseid_entry.get())
+            can.drawString(310, 280, credits_entry.get())
             can.setFont('Arial', 10)
-            start_y = 280
-        for i in range(len(coursename_list)):
-            can.drawString(start_x, start_y-(i*10), coursename_list[i])
-        can.setFont('Arial', 12)
-        can.drawString(215, 280, courseid_entry.get())
-        can.drawString(310, 280, credits_entry.get())
-        can.setFont('Arial', 10)
-        can.drawString(365, 280, start_date_entry.get())
-        can.drawString(425, 280, end_date_entry.get())
-        can.setFont('Arial', 12)
-        can.drawString(490, 280, tuition_entry.get())
-        can.drawString(445, 48, tuition_entry.get())
+            can.drawString(365, 280, start_date_entry.get())
+            can.drawString(425, 280, end_date_entry.get())
+            can.setFont('Arial', 12)
+            can.drawString(490, 280, "${:,.2f}".format(float(tuition_entry.get().replace('$',''))))
+            can.drawString(445, 48, "${:,.2f}".format(float(tuition_entry.get().replace('$',''))))
+            
     
     # finish drawing page 2 and move to page 3
     can.showPage()
@@ -309,8 +353,8 @@ def sign_file(choice):
         del outfile
     
     
-def sign_file_with_excel():
-    sign_file('excel')
+def sign_file_with_course():
+    sign_file('course')
 
 def sign_file_with_name():
     sign_file('name')
@@ -328,6 +372,35 @@ def update_courseid(sv):
         coursename_entry.insert(0, get_coursename(sv.get()))
         credits_entry.delete(0, 'end')
         credits_entry.insert(0, get_credits(sv.get()))
+        
+courses_list = []
+        
+def add_course():
+    ### push course into course_list, then update listbox to match
+    ### courseID, tuition, start, end, course name, credits ###
+    course = [courseid_entry.get(), tuition_entry.get(), start_date_entry.get(), end_date_entry.get(), coursename_entry.get(), credits_entry.get()]
+    global courses_list
+    if len(courses_list)<4:
+        courses_list.append(course)
+    rebuild_listbox()
+    
+def delete_course():
+    selected = courses_listbox.curselection()
+    global courses_list
+    for x in selected:
+        del courses_list[x]
+    rebuild_listbox()
+    
+def clear_courses():
+    global courses_list
+    courses_list = []
+    rebuild_listbox()
+    
+def rebuild_listbox():
+    global courses_list
+    courses_listbox.delete(0, courses_listbox.size())
+    for course in courses_list:
+        courses_listbox.insert(tk.END, course[0]+' - '+"${:,.2f}".format(float(course[1].replace('$','')))+' - '+course[5]+'CR')
     
 
 """ Tkinter dialog window functions """
@@ -335,7 +408,7 @@ def update_courseid(sv):
 root = tk.Tk()
 root.title("WGU Voucher Wizard")
 root.resizable(False, False)
-root.geometry('530x220')
+root.geometry('500x280')
 frame_left = tk.Frame(root)
 frame_left.pack(side='top')
 
@@ -373,7 +446,7 @@ sign_name_button.grid(column=0,row=4)
 sign_excel_button = ttk.Button(
     frame_left,
     text='Sign file with course data',
-    command=sign_file_with_excel
+    command=sign_file_with_course
     )
 sign_excel_button.grid(column=2,row=7)
 
@@ -382,7 +455,7 @@ sign_both_button = ttk.Button(
     text='Sign file with all data',
     command=sign_file_with_both
     )
-sign_both_button.grid(column=1,row=9)
+sign_both_button.grid(column=1,row=8)
 
 fill_button = ttk.Button(
     frame_left,
@@ -391,45 +464,91 @@ fill_button = ttk.Button(
     )
 fill_button.grid(column=2,row=0)
 
+
+### CourseID Label ###
 label1 = tk.Label(frame_left, width=10, text="CourseID")
 label1.grid(column=1,row=1)
-#label1.pack(padx=5,pady=5)
 sv = StringVar()
 sv.trace("w", lambda name, index, mode, sv=sv: update_courseid(sv))
+### CourseID Entry Box ###
 courseid_entry = tk.Entry(frame_left, width=30, textvariable=sv)
 courseid_entry.grid(column=2,row=1)
-#courseid_entry.pack(padx=5,pady=5)
+### Tuition Label ###
 label2 = tk.Label(frame_left, width=10, text="Tuition")
-#label2.pack(padx=5,pady=5)
 label2.grid(column=1,row=2)
+### Tuition Entry Box ###
 tuition_entry = tk.Entry(frame_left, width=30)
 tuition_entry.grid(column=2,row=2)
-#tuition_entry.pack(padx=5,pady=5)
+### Start Date Label ###
 label3 = tk.Label(frame_left, width=10, text="Start Date")
-#label3.pack(padx=5,pady=5)
 label3.grid(column=1,row=3)
+### Start Date Entry Box ###
 start_date_entry = tk.Entry(frame_left, width=30)
 start_date_entry.grid(column=2,row=3)
-#start_date_entry.pack(padx=5,pady=5)
+### End Date Label ###
 label4 = tk.Label(frame_left, width=10, text="End Date")
-#label4.pack(padx=5,pady=5)
 label4.grid(column=1,row=4)
+### End Date Entry Box ###
 end_date_entry = tk.Entry(frame_left, width=30)
 end_date_entry.grid(column=2,row=4)
-#end_date_entry.pack(padx=5, pady=5)
+### Course Name Label ###
 label5 = tk.Label(frame_left, width=10, text="Course Name")
-#label5.pack(padx=5,pady=5)
 label5.grid(column=1,row=5)
+### Course Name Entry Box ###
 coursename_entry = tk.Entry(frame_left, width=30)
 coursename_entry.grid(column=2,row=5)
-#coursename_entry.pack(padx=5, pady=5)
+### Credits Label ###
 label6 = tk.Label(frame_left, width=10, text="Credits")
-#label6.pack(padx=5,pady=5)
 label6.grid(column=1,row=6)
+### Credits Entry Box ###
 credits_entry = tk.Entry(frame_left, width=30)
 credits_entry.grid(column=2,row=6)
-#credits_entry.pack(padx=5, pady=5)
+
+
+frame_courses = ttk.Frame(frame_left)
+frame_courses.grid(column=2,row=8)
+
+
+### Add course button ###
+add_course_button = ttk.Button(
+    frame_courses,
+    text='+',
+    command=add_course,
+    width='5'
+    )
+add_course_button.grid(column=0,row=0)
+
+### Delete course button ###
+delete_course_button = ttk.Button(
+    frame_courses,
+    text='-',
+    command=delete_course,
+    width='5'
+    )
+delete_course_button.grid(column=1,row=0)
+
+### Clear courses button ###
+clear_courses_button = ttk.Button(
+    frame_courses,
+    text='Clear',
+    command=clear_courses,
+    width='7'
+    )
+clear_courses_button.grid(column=2,row=0)
+
+### Courses Label ###
+label7 = tk.Label(frame_left, width=10, text="Courses")
+label7.grid(column=1,row=9)
+courses_listbox = tk.Listbox(
+    frame_left,
+    height='4',
+    selectmode='SINGLE',
+    width='30'
+    )
+courses_listbox.grid(column=2,row=9)
 
 fill_excel_values()
 
 root.mainloop()
+
+
